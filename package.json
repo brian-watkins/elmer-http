@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "elm": "ELM_HOME=$(pwd)/node_modules/elmer-test/home elm",
+    "build:docs": "ELM_HOME=$(pwd)/node_modules/elmer-test/home elm make --docs=docs.json",
     "test": "ELM_HOME=$(pwd)/node_modules/elmer-test/home elm-test"
   },
   "author": "Brian Watkins",
