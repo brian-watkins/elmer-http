@@ -1,12 +1,14 @@
 # Elmer.Http
 
-This is an extension for [Elmer](https://github.com/brian-watkins/elmer) that adds the 
-ability to work with HTTP in Elmer tests. 
+This is an extension for [Elmer](https://github.com/brian-watkins/elmer) that adds test functions and
+matchers for describing the behavior of Elm apps that use HTTP.
+
 
 ### Requirements
 
-- Elmer v. 6.x
-- elm/http v. 1.x
+- [Elmer](https://github.com/brian-watkins/elmer) - Version 6.x
+- [elm/http](https://github.com/elm/http) - Version 1.x
+
 
 ### Getting Started
 
@@ -14,6 +16,7 @@ First, you need to install Elmer 6.x in your project. See the documentation
 for [Elmer](https://github.com/brian-watkins/elmer) for more information on installing the latest version.
 
 Next, you should clone this repository and copy or link the src files into your tests directory.
+
 
 ### Usage
 
@@ -96,3 +99,16 @@ can provide `Elmer.Http.spy` to `Elmer.Spy.use` and it will override the `Http.s
 functions so that they merely record any requests received.
 
 See `Elmer.Http` and `Elmer.Http.Matchers` for more.
+
+
+#### Deferred Commands
+
+It's often necessary to describe the behavior of an application while some command is running. For example,
+one might want to show a progress indicator while an HTTP request is in process. Elmer provides
+general support for deferred commands. Use `Elmer.Command.defer` to create a command that
+will not be processed until `Elmer.resolveDeferred` is called. Note that all currently
+deferred commands will be resolved when this function is called.
+
+`Elmer.Http` allows you to specify when the processing of a stubbed response should be deferred.
+When you create your `HttpResponseStub` just use the `Elmer.Http.Stub.deferResponse` builder function
+to indicate that this response should be deferred until `Elmer.resolveDeferred` is called.
