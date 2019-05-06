@@ -18,6 +18,11 @@ for [Elmer](https://github.com/brian-watkins/elmer) for more information on inst
 Next, you should clone this repository and copy or link the src files into your tests directory.
 
 
+### Documentation
+
+Read the latest docs [here](https://elmer-test.cfapps.io/elmer.http).
+
+
 ### Usage
 
 Modern web apps often need to make HTTP requests to some backend server. Elmer makes it easy to stub HTTP
