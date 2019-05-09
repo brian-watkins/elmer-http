@@ -18,7 +18,6 @@ under test.
 -}
 
 import Expect
-import Http
 import Url.Builder as Builder
 import Elmer exposing (Matcher)
 import Elmer.Http.Request exposing (HttpRequest)

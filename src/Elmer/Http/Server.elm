@@ -3,41 +3,36 @@ module Elmer.Http.Server exposing
   , handleRequest
   )
 
-
-import Http exposing (Error(..))
 import Elmer.Http.Internal as HttpInternal
 import Elmer.Http.Types exposing (..)
 import Elmer.Message exposing (..)
 
 
-type alias HttpServerResult a =
+type alias HttpServerResult x a =
   { request : HttpRequest
-  , stub: HttpStub
-  , result: Result Http.Error a
+  , stub: HttpStub x
+  , result: Result x a
   }
 
 
-handleRequest : List HttpResponseStub -> Http.Request a -> Result String (HttpServerResult a)
-handleRequest responseStubs request =
-  let
-    httpRequestHandler = HttpInternal.asHttpRequestHandler request
-  in
-    unwrapResponseStubs responseStubs
-      |> matchFirstRequest httpRequestHandler
-      |> Result.map (\stub ->
-        { request = httpRequestHandler.request
-        , stub = stub
-        , result = processResponse httpRequestHandler stub
-        }
-      )
+handleRequest : List (HttpResponseStub x) -> HttpRequestHandler x a -> Result String (HttpServerResult x a)
+handleRequest responseStubs requestHandler =
+  unwrapResponseStubs responseStubs
+    |> matchFirstRequest requestHandler
+    |> Result.map (\stub ->
+      { request = requestHandler.request
+      , stub = stub
+      , result = processResponse requestHandler stub
+      }
+    )
 
 
-unwrapResponseStubs : List HttpResponseStub -> List HttpStub
+unwrapResponseStubs : List (HttpResponseStub x) -> List (HttpStub x)
 unwrapResponseStubs responseStubs =
   List.map (\(HttpResponseStub stub) -> stub) responseStubs
 
 
-matchFirstRequest : HttpRequestHandler a -> List HttpStub -> Result String HttpStub
+matchFirstRequest : HttpRequestHandler x a -> List (HttpStub x) -> Result String (HttpStub x)
 matchFirstRequest httpRequestHandler responseStubs =
   case List.head <| List.filterMap (matchRequest httpRequestHandler) responseStubs of
     Just matchingResponseStub ->
@@ -49,28 +44,28 @@ matchFirstRequest httpRequestHandler responseStubs =
         ]
 
 
-printRequest : HttpRequestHandler a -> String
+printRequest : HttpRequestHandler x a -> String
 printRequest requestHandler =
   requestHandler.request.method ++ " " ++ requestHandler.request.url
 
 
-printStubs : List HttpStub -> String
+printStubs : List (HttpStub x) -> String
 printStubs =
   List.foldl (\s msg -> msg ++ (printStub s) ++ "\n") ""
 
 
-printStub : HttpStub -> String
+printStub : (HttpStub x) -> String
 printStub responseStub =
   responseStub.method ++ " " ++ responseStub.url
 
 
-matchRequest : HttpRequestHandler a -> HttpStub -> Maybe HttpStub
+matchRequest : HttpRequestHandler x a -> (HttpStub x) -> Maybe (HttpStub x)
 matchRequest httpRequestHandler stub =
   matchRequestUrl httpRequestHandler stub
     |> Maybe.andThen (matchRequestMethod httpRequestHandler)
 
 
-matchRequestUrl : HttpRequestHandler a -> HttpStub -> Maybe HttpStub
+matchRequestUrl : HttpRequestHandler x a -> (HttpStub x) -> Maybe (HttpStub x)
 matchRequestUrl httpRequestHandler stub =
   if (HttpInternal.route httpRequestHandler.request.url) == stub.url then
     Just stub
@@ -78,7 +73,7 @@ matchRequestUrl httpRequestHandler stub =
     Nothing
 
 
-matchRequestMethod : HttpRequestHandler a -> HttpStub -> Maybe HttpStub
+matchRequestMethod : HttpRequestHandler x a -> (HttpStub x) -> Maybe (HttpStub x)
 matchRequestMethod httpRequestHandler stub =
   if httpRequestHandler.request.method == stub.method then
     Just stub
@@ -86,40 +81,16 @@ matchRequestMethod httpRequestHandler stub =
     Nothing
 
 
-generateResult : HttpRequest -> HttpStub -> HttpResult
-generateResult request stub =
-  stub.resultBuilder request
-
-
-processResponse : HttpRequestHandler a -> HttpStub -> Result Http.Error a
+processResponse : HttpRequestHandler x a -> (HttpStub x) -> Result x a
 processResponse httpRequestHandler stub =
-  generateResult httpRequestHandler.request stub
-    |> handleResponseError
-    |> Result.andThen handleResponseStatus
-    |> Result.andThen (handleResponse httpRequestHandler)
+  buildResult stub httpRequestHandler.request
+    |> Result.andThen httpRequestHandler.responseHandler
 
 
-handleResponseError : HttpResult -> Result Http.Error (Http.Response String)
-handleResponseError responseResult =
-  case responseResult of
+buildResult : HttpStub x -> HttpRequest -> Result x (HttpResponse String)
+buildResult stub request =
+  case stub.resultBuilder request of
     Response response ->
       Ok response
     Error error ->
       Err error
-
-
-handleResponseStatus : Http.Response String -> Result Http.Error (Http.Response String)
-handleResponseStatus response =
-  if response.status.code >= 200 && response.status.code < 300 then
-    Ok response
-  else
-    Err (Http.BadStatus response)
-
-
-handleResponse : HttpRequestHandler a -> Http.Response String -> Result Http.Error a
-handleResponse httpRequestHandler response =
-  case httpRequestHandler.responseHandler response of
-    Ok data ->
-      Ok data
-    Err err ->
-      Err (Http.BadPayload err response)

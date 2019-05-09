@@ -3,7 +3,7 @@ module HttpMatcherTests exposing (..)
 import Test exposing (..)
 import Expect
 import Http
-import Elmer.Http.Internal as HttpInternal
+import Elmer.Http.Adapter as HttpAdapter
 import Elmer.Http.Request exposing (HttpRequest)
 import Elmer.Http.Matchers as Matchers
 import Elmer.Message exposing (..)
@@ -21,7 +21,7 @@ requestWithBody body =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
 
 requestWithNoBody : HttpRequest
 requestWithNoBody =
@@ -34,7 +34,7 @@ requestWithNoBody =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
 
 
 wasRequestedTests : Test
@@ -129,7 +129,7 @@ getWithQuery maybeQuery =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
 
 
 hasQueryParamTests : Test
@@ -176,7 +176,7 @@ getWithHeader maybeHeader =
       , timeout = Nothing
       , withCredentials = False
       }
-    |> HttpInternal.makeHttpRequest
+    |> HttpAdapter.makeHttpRequest
   
 
 hasHeaderTests : Test

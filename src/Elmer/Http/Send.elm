@@ -2,6 +2,7 @@ module Elmer.Http.Send exposing
   ( stubbedWith
   )
 
+import Elmer.Http.Adapter as Adapter
 import Elmer.Http.Internal as HttpInternal
 import Elmer.Http.Types exposing (..)
 import Elmer.Http.Server as Server
@@ -11,9 +12,16 @@ import Elmer.Message exposing (..)
 import Http
 
 
-stubbedWith : List HttpResponseStub -> HttpRequestFunction a msg
+type alias HttpRequestFunction a msg =
+  (Result Http.Error a -> msg) -> Http.Request a -> Cmd msg
+
+
+stubbedWith : List (HttpResponseStub Http.Error) -> HttpRequestFunction a msg
 stubbedWith responseStubs tagger request =
-  case Server.handleRequest responseStubs request of
+  let
+    requestHandler = Adapter.asHttpRequestHandler request
+  in
+  case Server.handleRequest responseStubs requestHandler of
     Ok response ->
       case response.result of
         Ok data ->
@@ -40,7 +48,7 @@ failCommand httpRequest tagger error =
       Command.fake (tagger (Err error))
 
 
-generateCommand : HttpStub -> (Result Http.Error a -> msg) -> a -> Cmd msg
+generateCommand : HttpStub Http.Error -> (Result Http.Error a -> msg) -> a -> Cmd msg
 generateCommand stub tagger data =
   let
     command = Command.fake (tagger (Ok data))

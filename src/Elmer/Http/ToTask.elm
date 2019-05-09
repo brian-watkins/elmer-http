@@ -3,6 +3,7 @@ module Elmer.Http.ToTask exposing
   )
 
 
+import Elmer.Http.Adapter as Adapter
 import Elmer.Http.Internal as HttpInternal
 import Elmer.Http.Types exposing (..)
 import Elmer.Http.Server as Server
@@ -13,14 +14,17 @@ import Task exposing (Task)
 import Http
 
 
-stubbedWith : List HttpResponseStub -> Http.Request a -> Task Http.Error a
+stubbedWith : List (HttpResponseStub Http.Error) -> Http.Request a -> Task Http.Error a
 stubbedWith responseStubs request =
-  case Server.handleRequest responseStubs request of
-    Ok response ->
-      httpTask response.request response.result
-        |> deferIfNecessary response.stub
-    Err error ->
-      Elmer.Task.failTest error
+  let
+      requestHandler = Adapter.asHttpRequestHandler request
+  in
+    case Server.handleRequest responseStubs requestHandler of
+      Ok response ->
+        httpTask response.request response.result
+          |> deferIfNecessary response.stub
+      Err error ->
+        Elmer.Task.failTest error
 
 
 httpTask : HttpRequest -> Result Http.Error a -> Task Http.Error a
@@ -46,7 +50,7 @@ updateTestState request maybeRequests =
     |> (::) request
 
 
-deferIfNecessary : HttpStub -> Task Http.Error a -> Task Http.Error a
+deferIfNecessary : HttpStub Http.Error -> Task Http.Error a -> Task Http.Error a
 deferIfNecessary stub task =
   if stub.deferResponse then
     Elmer.Task.defer task

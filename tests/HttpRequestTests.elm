@@ -2,7 +2,7 @@ module HttpRequestTests exposing (..)
 
 import Test exposing (..)
 import Expect
-import Elmer.Http.Internal as HttpInternal
+import Elmer.Http.Adapter as HttpAdapter
 import Elmer.Http.Request as HttpRequest exposing (HttpRequest)
 import Http
 import Dict
@@ -82,7 +82,7 @@ testRequest body =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
   
 
 testQueryRequest : String -> HttpRequest
@@ -96,7 +96,7 @@ testQueryRequest query =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
   
 
 testHeadersRequest : List { name : String, value : String } -> HttpRequest
@@ -110,5 +110,5 @@ testHeadersRequest headers =
     , timeout = Nothing
     , withCredentials = False
     }
-  |> HttpInternal.makeHttpRequest
+  |> HttpAdapter.makeHttpRequest
   

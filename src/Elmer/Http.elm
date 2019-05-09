@@ -48,7 +48,7 @@ import Test.Runner
 Use `Elmer.Http.Stub` to build an `HttpResponseStub`.
 -}
 type alias HttpResponseStub
-  = Types.HttpResponseStub
+  = Types.HttpResponseStub Http.Error
 
 
 {-| Override `Http.send` and `Http.toTask` to register HttpResponseStubs that will be

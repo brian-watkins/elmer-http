@@ -1,7 +1,6 @@
 module Elmer.Http.Types exposing
     ( HttpEffects(..)
     , HttpHeader
-    , HttpRequestFunction
     , HttpRequestHandler
     , HttpRequest
     , HttpStub
@@ -9,10 +8,12 @@ module Elmer.Http.Types exposing
     , HttpResult(..)
     , HttpStatus(..)
     , HttpRoute
+    , HttpError(..)
+    , HttpResponse
     , HttpStringBody
     )
 
-import Http
+import Dict exposing (Dict)
 
 
 type HttpEffects
@@ -30,9 +31,6 @@ type alias HttpRequest =
   , body: Maybe String
   }
 
-type alias HttpRequestFunction a b =
-  (Result Http.Error a -> b) -> Http.Request a -> Cmd b
-
 type alias HttpHeader =
   { name: String
   , value: String
@@ -43,24 +41,38 @@ type alias HttpStringBody =
   , body: String
   }
 
-type alias HttpRequestHandler a =
+type alias HttpRequestHandler x a =
   { request: HttpRequest
-  , responseHandler: (Http.Response String -> Result String a)
+  , responseHandler: (HttpResponse String -> Result x a)
   }
 
-type HttpResponseStub
-  = HttpResponseStub HttpStub
+type HttpResponseStub x
+  = HttpResponseStub (HttpStub x)
 
-type alias HttpStub =
+type alias HttpStub x =
   { url: String
   , method: String
-  , resultBuilder : (HttpRequest -> HttpResult)
+  , resultBuilder : (HttpRequest -> HttpResult x)
   , deferResponse: Bool
   }
 
-type HttpResult
-  = Response (Http.Response String)
-  | Error Http.Error
+type alias HttpResponse a =
+  { url: String
+  , status: Status
+  , headers: Dict String String
+  , body: a
+  }
+
+type HttpError
+  = BadUrl String
+  | Timeout
+  | NetworkError
+  | BadStatus Int
+  | UnparseableBody String
+
+type HttpResult x
+  = Response (HttpResponse String)
+  | Error x
 
 
 type HttpStatus

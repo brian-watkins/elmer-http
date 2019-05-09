@@ -14,11 +14,12 @@ module Elmer.Http.Result exposing
 import Elmer.Http.Types as Types
 import Elmer.Http.Status exposing (HttpStatus)
 import Dict
+import Http
 
 {-| Represents the stubbed result of an HTTP request.
 -}
 type alias HttpResult =
-  Types.HttpResult
+  Types.HttpResult Http.Error
 
 
 {-| Set the body of an HttpResult.
