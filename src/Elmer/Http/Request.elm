@@ -11,7 +11,7 @@ module Elmer.Http.Request exposing
 
 -}
 
-import Elmer.Http.Internal as Http_
+import Elmer.Http.Routable as Routable
 import Elmer.Http.Types as Types
 
 {-| Represents a recorded HTTP request about which expectations may be made.
@@ -31,7 +31,7 @@ body request =
 -}
 queryString : HttpRequest -> Maybe String
 queryString request =
-  Http_.queryString request.url
+  Routable.queryString request
 
 
 {-| Get the headers of a recorded HTTP request as a list of (name, value) tuples. 

@@ -3,7 +3,7 @@ module Elmer.Http.Server exposing
   , matchStub
   )
 
-import Elmer.Http.Internal as HttpInternal
+import Elmer.Http.Routable as Routable
 import Elmer.Http.Types exposing (..)
 import Elmer.Message exposing (..)
 
@@ -32,7 +32,7 @@ unwrapResponseStubs responseStubs =
 
 matchFirstRequest : HttpRequest -> List (HttpStub x) -> Result String (HttpStub x)
 matchFirstRequest httpRequest responseStubs =
-  case List.head <| List.filterMap (matchRequest httpRequest) responseStubs of
+  case List.head <| List.filter (Routable.matches httpRequest) responseStubs of
     Just matchingResponseStub ->
       Ok matchingResponseStub
     Nothing ->
@@ -44,7 +44,7 @@ matchFirstRequest httpRequest responseStubs =
 
 printRequest : HttpRequest -> String
 printRequest =
-  HttpInternal.routeToString
+  Routable.toString
 
 
 printStubs : List (HttpStub x) -> String
@@ -55,25 +55,3 @@ printStubs =
 printStub : (HttpStub x) -> String
 printStub responseStub =
   responseStub.method ++ " " ++ responseStub.url
-
-
-matchRequest : HttpRequest -> (HttpStub x) -> Maybe (HttpStub x)
-matchRequest request stub =
-  matchRequestUrl request stub
-    |> Maybe.andThen (matchRequestMethod request)
-
-
-matchRequestUrl : HttpRequest -> (HttpStub x) -> Maybe (HttpStub x)
-matchRequestUrl request stub =
-  if (HttpInternal.route request.url) == stub.url then
-    Just stub
-  else
-    Nothing
-
-
-matchRequestMethod : HttpRequest -> (HttpStub x) -> Maybe (HttpStub x)
-matchRequestMethod request stub =
-  if request.method == stub.method then
-    Just stub
-  else
-    Nothing

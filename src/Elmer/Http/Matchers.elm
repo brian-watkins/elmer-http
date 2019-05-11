@@ -21,7 +21,7 @@ import Expect
 import Url.Builder as Builder
 import Elmer exposing (Matcher)
 import Elmer.Http.Request exposing (HttpRequest)
-import Elmer.Http.Internal as Http_
+import Elmer.Http.Routable as Routable
 import Elmer.Message exposing (..)
 
 
@@ -101,9 +101,10 @@ hasQueryParam ( key, value ) =
       else
         Expect.fail (format [ fact "Expected request to have query param" ( key ++ " = " ++ value), fact "but it has" query ])
 
+
 queryString : HttpRequest -> String
 queryString request =
-  Http_.queryString request.url
+  Routable.queryString request
     |> Maybe.withDefault ""
 
 

@@ -14,6 +14,7 @@ module Elmer.Http.Types exposing
     , ResponseHandler
     , ExchangeResult
     , Exchange
+    , Status
     )
 
 import Dict exposing (Dict)

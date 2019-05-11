@@ -5,11 +5,12 @@ module Elmer.Http.Adapter exposing
 import Http
 import Json.Decode as Json
 import Elmer.Value as Value
-import Elmer.Http.Internal exposing (isGoodStatusCode, routeToString)
+import Elmer.Http.Routable as Routable
 import Elmer.Http.Types exposing (..)
 import Elmer.Http.Adapter.Types exposing (..)
 import Elmer.Http.Adapter.Request as Request
 import Elmer.Http.Adapter.ResponseHandler as ResponseHandler
+import Elmer.Http.Response as Response
 import Elmer.Message as Message exposing (fact, note)
 import Elmer.Http.Errors as Errors
 
@@ -40,24 +41,15 @@ handleResponse handler (stub, serverResult) =
           Ok <| handler <| Http.BadUrl_ message
         Http.BadBody message ->
           Errors.errWith <|
-            Errors.invalidUseOfBadBodyError (routeToString stub) message
+            Errors.invalidUseOfBadBodyError (Routable.toString stub) message
         Http.BadStatus code ->
           Errors.errWith <|
-            Errors.invalidUseOfBadStatusError (routeToString stub) code
+            Errors.invalidUseOfBadStatusError (Routable.toString stub) code
 
 
 handleResponseStatus : HttpResponse String -> Http.Response String
 handleResponseStatus response =
-  if isGoodStatusCode response.status.code then
-    Http.GoodStatus_ (toMetadata response) response.body
+  if Response.isGood response then
+    Http.GoodStatus_ (Response.metadata response) response.body
   else
-    Http.BadStatus_ (toMetadata response) response.body
-
-
-toMetadata : HttpResponse String -> Http.Metadata
-toMetadata response =
-  { url = response.url
-  , statusCode = response.status.code
-  , statusText = response.status.message
-  , headers = response.headers
-  }
+    Http.BadStatus_ (Response.metadata response) response.body

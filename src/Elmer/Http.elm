@@ -28,7 +28,7 @@ component. What to do?
 import Http
 import Dict
 import Elmer exposing (Matcher)
-import Elmer.Http.Internal as Http_ exposing (routeToString)
+import Elmer.Http.Routable as Routable
 import Elmer.Http.Types as Types
 import Elmer.Http.Command
 import Elmer.Http.Task
@@ -113,9 +113,9 @@ expectRequest route =
           Maybe.withDefault [] maybeRequests
       in
         if List.isEmpty requests then
-          Errors.failWith <| Errors.noRequest (routeToString route)
+          Errors.failWith <| Errors.noRequest (Routable.toString route)
         else
-          case hasRequest requests route.method route.url of
+          case hasRequestForRoute requests route of
             Just _ ->
               Expect.pass
             Nothing ->
@@ -125,7 +125,7 @@ expectRequest route =
                     |> List.map (\r -> r.method ++ " " ++ r.url)
                     |> String.join "\n"
               in
-                Errors.failWith <| Errors.wrongRequest (routeToString route) requestInfo
+                Errors.failWith <| Errors.wrongRequest (Routable.toString route) requestInfo
 
 
 {-| Make some expectation about requests to the specified route.
@@ -150,25 +150,20 @@ expect route matcher =
           Maybe.withDefault [] maybeRequests
 
         result =
-          List.filter (matchesRequest route.method route.url) requests
+          List.filter (Routable.matches route) requests
             |> matcher
       in
         case Test.Runner.getFailureReason result of
           Just failure ->
             Errors.failWith <| 
               Errors.requestMatcherFailed
-                (routeToString route)
+                (Routable.toString route)
                 (Failure.format [ failure ])
           Nothing ->
             Expect.pass
 
 
-hasRequest : List HttpRequest -> String -> String -> Maybe HttpRequest
-hasRequest requests method url =
-  List.filter (matchesRequest method url) requests
+hasRequestForRoute : List HttpRequest -> HttpRoute -> Maybe HttpRequest
+hasRequestForRoute requests route =
+  List.filter (Routable.matches route) requests
     |> List.head
-
-
-matchesRequest : String -> String -> HttpRequest -> Bool
-matchesRequest method url request =
-  request.method == method && (Http_.route request.url) == url
