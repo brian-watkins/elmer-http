@@ -50,6 +50,15 @@ handleResponse handler (stub, serverResult) =
 handleResponseStatus : HttpResponse String -> Http.Response String
 handleResponseStatus response =
   if Response.isGood response then
-    Http.GoodStatus_ (Response.metadata response) response.body
+    Http.GoodStatus_ (toMetadata response) response.body
   else
-    Http.BadStatus_ (Response.metadata response) response.body
+    Http.BadStatus_ (toMetadata response) response.body
+
+
+toMetadata : HttpResponse a -> Http.Metadata
+toMetadata response =
+  { url = response.url
+  , statusCode = response.status.code
+  , statusText = response.status.message
+  , headers = response.headers
+  }
