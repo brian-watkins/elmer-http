@@ -4,6 +4,7 @@ import Test exposing (..)
 import Expect
 import Http
 import Elmer.Http.Adapter as HttpAdapter
+import Elmer.Http.Adapter.Request as RequestAdapter
 import Elmer.Http.Request exposing (HttpRequest)
 import Elmer.Http.Matchers as Matchers
 import Elmer.Message exposing (..)
@@ -12,7 +13,7 @@ import Elmer.Message exposing (..)
 
 requestWithBody : String -> HttpRequest
 requestWithBody body =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "POST"
     , headers = []
     , url = "http://fun.com/fun"
@@ -25,7 +26,7 @@ requestWithBody body =
 
 requestWithNoBody : HttpRequest
 requestWithNoBody =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "POST"
     , headers = []
     , url = "http://fun.com/fun"
@@ -119,7 +120,7 @@ hasBodyTests =
 
 getWithQuery : Maybe String -> HttpRequest
 getWithQuery maybeQuery =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "GET"
     , headers = []
     , url = "http://fun.com/fun" ++ (Maybe.withDefault "" maybeQuery)
@@ -165,7 +166,7 @@ getWithHeader maybeHeader =
         Nothing ->
           []
   in
-    HttpAdapter.makeHttpRequest
+    RequestAdapter.decode
       { method = "GET"
       , headers = headers
       , url = "http://fun.com/fun.html"

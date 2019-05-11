@@ -2,7 +2,7 @@ module Elmer.Http.Task exposing
   ( stubbedWith
   )
 
-import Elmer.Http.Adapter as Adapter
+import Elmer.Http.Adapter.Task as Adapter
 import Elmer.Http.Types exposing (..)
 import Elmer.Http.Client as Client
 import Elmer.Task
@@ -14,9 +14,7 @@ import Http
 stubbedWith : List (HttpResponseStub Http.Error) -> Adapter.HttpTaskRequestData err a -> Task err a
 stubbedWith responseStubs taskRequest =
   let
-      adapter =
-        Adapter.toRequestData taskRequest
-          |> Adapter.asHttpRequestAdapter
+      adapter = Adapter.decode taskRequest
   in
     case Client.exchange responseStubs adapter of
       Ok exchange ->

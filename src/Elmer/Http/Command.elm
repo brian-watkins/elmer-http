@@ -3,6 +3,7 @@ module Elmer.Http.Command exposing
   )
 
 import Elmer.Http.Adapter as Adapter
+import Elmer.Http.Adapter.Types exposing (..)
 import Elmer.Http.Types exposing (..)
 import Elmer.Http.Client as Client
 import Elmer.Effects as Effects
@@ -11,13 +12,13 @@ import Http
 
 
 type alias HttpRequestFunction msg =
-  Adapter.HttpRequestData msg -> Cmd msg
+  HttpRequestData msg -> Cmd msg
 
 
 stubbedWith : List (HttpResponseStub Http.Error) -> HttpRequestFunction msg
 stubbedWith responseStubs request =
   let
-    adapter = Adapter.asHttpRequestAdapter request
+    adapter = Adapter.decode request
   in
     case Client.exchange responseStubs adapter of
       Ok exchange ->

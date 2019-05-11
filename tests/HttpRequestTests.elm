@@ -3,6 +3,7 @@ module HttpRequestTests exposing (..)
 import Test exposing (..)
 import Expect
 import Elmer.Http.Adapter as HttpAdapter
+import Elmer.Http.Adapter.Request as RequestAdapter
 import Elmer.Http.Request as HttpRequest exposing (HttpRequest)
 import Http
 import Dict
@@ -70,7 +71,7 @@ type TestMsg
 
 testRequest : Maybe String -> HttpRequest
 testRequest body =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "GET"
     , headers = []
     , url = "http://fake.com"
@@ -88,7 +89,7 @@ testRequest body =
 
 testQueryRequest : String -> HttpRequest
 testQueryRequest query =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "GET"
     , headers = []
     , url = "http://fake.com?" ++ query
@@ -101,7 +102,7 @@ testQueryRequest query =
 
 testHeadersRequest : List { name : String, value : String } -> HttpRequest
 testHeadersRequest headers =
-  HttpAdapter.makeHttpRequest
+  RequestAdapter.decode
     { method = "GET"
     , headers = List.map (\h -> Http.header h.name h.value) headers
     , url = "http://fake.com"
