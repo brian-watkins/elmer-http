@@ -4,40 +4,40 @@ module Elmer.Http.Task exposing
 
 import Elmer.Http.Adapter as Adapter
 import Elmer.Http.Types exposing (..)
-import Elmer.Http.Server as Server
+import Elmer.Http.Client as Client
 import Elmer.Task
 import Elmer.Effects as Effects
 import Task exposing (Task)
 import Http
 
 
-stubbedWith : List (HttpResponseStub Http.Error) -> Adapter.HttpTaskRequestData x a -> Task x a
+stubbedWith : List (HttpResponseStub Http.Error) -> Adapter.HttpTaskRequestData err a -> Task err a
 stubbedWith responseStubs taskRequest =
   let
-      requestHandler = 
+      adapter =
         Adapter.toRequestData taskRequest
-          |> Adapter.asHttpRequestHandler
+          |> Adapter.asHttpRequestAdapter
   in
-    case Server.handleRequest responseStubs requestHandler of
-      Ok response ->
-        case response.result of
-          Ok (Adapter.Wrapper result) ->
-            case result of
-              Ok val ->
-                Task.succeed val
-                  |> deferIfNecessary response.stub
-                  |> andRecordRequestTask requestHandler.request
-              Err err ->
-                Task.fail err
-                  |> deferIfNecessary response.stub
-                  |> andRecordRequestTask requestHandler.request
-          Err error ->
-            Elmer.Task.failTest error
+    case Client.exchange responseStubs adapter of
+      Ok exchange ->
+        case Adapter.toTaskResult exchange of
+          Ok val ->
+            Task.succeed val
+              |> toHttpTask exchange
+          Err err ->
+            Task.fail err
+              |> toHttpTask exchange
       Err error ->
         Elmer.Task.failTest error
 
 
-andRecordRequestTask : HttpRequest -> Task x a -> Task x a
+toHttpTask : Exchange x msg -> Task err a -> Task err a
+toHttpTask exchange task =
+  task
+    |> deferIfNecessary exchange.stub
+    |> andRecordRequestTask exchange.request
+
+andRecordRequestTask : HttpRequest -> Task err a -> Task err a
 andRecordRequestTask request =
   updateTestState request
     |> Effects.pushWithTask Requests
@@ -49,7 +49,7 @@ updateTestState request maybeRequests =
     |> (::) request
 
 
-deferIfNecessary : HttpStub Http.Error -> Task x a -> Task x a
+deferIfNecessary : HttpStub x -> Task err a -> Task err a
 deferIfNecessary stub task =
   if stub.deferResponse then
     Elmer.Task.defer task

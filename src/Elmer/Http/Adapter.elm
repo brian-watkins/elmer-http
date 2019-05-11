@@ -1,10 +1,10 @@
 module Elmer.Http.Adapter exposing
   ( HttpRequestData
   , HttpTaskRequestData
-  , asHttpRequestHandler
+  , asHttpRequestAdapter
   , makeHttpRequest
   , toRequestData
-  , Wrapper(..)
+  , toTaskResult
   )
 
 import Http
@@ -26,30 +26,34 @@ type alias HttpRequestData msg =
   , tracker : Maybe String
   }
 
-type alias HttpTaskRequestData x a =
+
+type alias HttpTaskRequestData err a =
   { method : String
   , headers : List Http.Header
   , url : String
   , body : Http.Body
-  , resolver : Http.Resolver x a
+  , resolver : Http.Resolver err a
   , timeout : Maybe Float
   }
 
-type Wrapper x a =
-  Wrapper (Result x a)
 
-toRequestData : HttpTaskRequestData x a -> HttpRequestData (Wrapper x a)
+type TaskResultWrapper err a =
+  TaskResultWrapper (Result err a)
+
+
+toRequestData : HttpTaskRequestData err a -> HttpRequestData (TaskResultWrapper err a)
 toRequestData taskData =
   { method = taskData.method
   , headers = taskData.headers
   , url = taskData.url
   , body = taskData.body
-  , expect = Http.expectStringResponse Wrapper <| taskResolver taskData.resolver
+  , expect = Http.expectStringResponse TaskResultWrapper <| taskResolver taskData.resolver
   , timeout = taskData.timeout
   , tracker = Nothing
   }
 
-taskResolver : Http.Resolver x a -> (Http.Response String -> Result x a)
+
+taskResolver : Http.Resolver err a -> (Http.Response String -> Result err a)
 taskResolver resolver =
   case Value.decode resolverDecoder resolver of
     Ok fun ->
@@ -57,42 +61,56 @@ taskResolver resolver =
     Err message ->
       Debug.todo <| "Problem parsing resolver: " ++ (Json.errorToString message)
 
-resolverDecoder : Json.Decoder (Http.Response String -> Result x a)
+
+resolverDecoder : Json.Decoder (Http.Response String -> Result err a)
 resolverDecoder =
   Json.field "a" Value.decoder
 
-asHttpRequestHandler : HttpRequestData msg -> HttpRequestHandler Http.Error msg
-asHttpRequestHandler httpRequest =
-  { request = makeHttpRequest httpRequest
-  , responseHandler =
-      case Value.decode expectDecoder httpRequest of
-        Ok handler ->
-          \(stub, serverResult) ->
-            case serverResult of
-              Response response ->
-                handleResponseStatus response
-                  |> handler
-                  |> Ok
-              Error err ->
-                case err of
-                  Http.Timeout ->
-                    Ok <| handler Http.Timeout_
-                  Http.NetworkError ->
-                    Ok <| handler Http.NetworkError_
-                  Http.BadUrl message ->
-                    Ok <| handler <| Http.BadUrl_ message
-                  Http.BadBody message ->
-                    Errors.errWith <|
-                      Errors.invalidUseOfBadBodyError (routeToString stub) message
-                  Http.BadStatus code ->
-                    Errors.errWith <|
-                      Errors.invalidUseOfBadStatusError (routeToString stub) code
-        Err err ->
-          "Error fetching " ++ Json.errorToString err
-            |> Debug.todo
+
+toTaskResult : Exchange Http.Error (TaskResultWrapper err a) -> Result err a
+toTaskResult exchange =
+  case exchange.msg of
+    TaskResultWrapper result ->
+      result
+
+
+asHttpRequestAdapter : HttpRequestData msg -> HttpRequestAdapter Http.Error msg
+asHttpRequestAdapter httpRequestData =
+  { request = makeHttpRequest httpRequestData
+  , responseHandler = makeHandler httpRequestData
   }
 
 
+makeHandler : HttpRequestData msg -> ResponseHandler Http.Error msg
+makeHandler httpRequestData =
+  case Value.decode expectDecoder httpRequestData of
+    Ok handler ->
+      responseHandler handler
+    Err err ->
+      "Error parsing expect function " ++ Json.errorToString err
+        |> Debug.todo
+
+
+responseHandler : (Http.Response String -> msg) -> ResponseHandler Http.Error msg
+responseHandler handler (stub, serverResult) =
+  case serverResult of
+    Response response ->
+      handleResponseStatus response
+        |> Ok << handler
+    Error err ->
+      case err of
+        Http.Timeout ->
+          Ok <| handler Http.Timeout_
+        Http.NetworkError ->
+          Ok <| handler Http.NetworkError_
+        Http.BadUrl message ->
+          Ok <| handler <| Http.BadUrl_ message
+        Http.BadBody message ->
+          Errors.errWith <|
+            Errors.invalidUseOfBadBodyError (routeToString stub) message
+        Http.BadStatus code ->
+          Errors.errWith <|
+            Errors.invalidUseOfBadStatusError (routeToString stub) code
 
 handleResponseStatus : HttpResponse String -> Http.Response String
 handleResponseStatus response =

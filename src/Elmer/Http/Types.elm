@@ -1,7 +1,7 @@
 module Elmer.Http.Types exposing
     ( HttpEffects(..)
     , HttpHeader
-    , HttpRequestHandler
+    , HttpRequestAdapter
     , HttpRequest
     , HttpStub
     , HttpResponseStub(..)
@@ -11,6 +11,9 @@ module Elmer.Http.Types exposing
     , HttpError(..)
     , HttpResponse
     , HttpStringBody
+    , ResponseHandler
+    , ExchangeResult
+    , Exchange
     )
 
 import Dict exposing (Dict)
@@ -41,9 +44,12 @@ type alias HttpStringBody =
   , body: String
   }
 
-type alias HttpRequestHandler x msg =
+type alias ResponseHandler x msg =
+  (HttpStub x, HttpResult x) -> Result String msg
+
+type alias HttpRequestAdapter x msg =
   { request: HttpRequest
-  , responseHandler: ((HttpStub x, HttpResult x) -> Result String msg)
+  , responseHandler: ResponseHandler x msg
   }
 
 type HttpResponseStub x
@@ -70,10 +76,19 @@ type HttpError
   | BadStatus Int
   | UnparseableBody String
 
+type alias Exchange x msg =
+  { request : HttpRequest
+  , stub : HttpStub x
+  , msg : msg
+  }
+
+type alias ExchangeResult x msg =
+  Result String (Exchange x msg)
+
+
 type HttpResult x
   = Response (HttpResponse String)
   | Error x
-
 
 type HttpStatus
   = HttpStatus Status

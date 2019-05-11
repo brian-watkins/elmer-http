@@ -4,7 +4,7 @@ module Elmer.Http.Command exposing
 
 import Elmer.Http.Adapter as Adapter
 import Elmer.Http.Types exposing (..)
-import Elmer.Http.Server as Server
+import Elmer.Http.Client as Client
 import Elmer.Effects as Effects
 import Elmer.Command as Command
 import Http
@@ -17,17 +17,13 @@ type alias HttpRequestFunction msg =
 stubbedWith : List (HttpResponseStub Http.Error) -> HttpRequestFunction msg
 stubbedWith responseStubs request =
   let
-    requestHandler = Adapter.asHttpRequestHandler request
+    adapter = Adapter.asHttpRequestAdapter request
   in
-    case Server.handleRequest responseStubs requestHandler of
-      Ok response ->
-        case response.result of
-          Ok msg ->
-            Command.fake msg
-              |> deferIfNecessary response.stub
-              |> toHttpCommand response.request
-          Err error ->
-            Command.fail error
+    case Client.exchange responseStubs adapter of
+      Ok exchange ->
+        Command.fake exchange.msg
+          |> deferIfNecessary exchange.stub
+          |> toHttpCommand exchange.request
       Err error ->
         Command.fail error
 
