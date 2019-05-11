@@ -11,21 +11,7 @@ exchange : List (HttpResponseStub x) -> HttpRequestAdapter x msg -> ExchangeResu
 exchange stubs adapter =
   Server.matchStub stubs adapter.request
     |> Result.map buildResult
-    |> Result.andThen (\(stub, result) ->
-      adapter.responseHandler (stub, result)
-        |> Result.map (\msg ->
-          { request = adapter.request
-          , stub = stub
-          , msg = msg
-          }
-        )
-    )
-
-
-processStubbedResponse : ResponseHandler x msg -> HttpStubMatch x -> Result String msg
-processStubbedResponse handler serverResponse =
-  buildResult serverResponse
-    |> handler
+    |> Result.andThen (handleExchange adapter)
 
 
 buildResult : HttpStubMatch x -> (HttpStub x, HttpResult x)
@@ -34,3 +20,14 @@ buildResult serverResponse =
   , serverResponse.request
     |> serverResponse.stub.resultBuilder
   )
+
+
+handleExchange : HttpRequestAdapter x msg -> (HttpStub x, HttpResult x) -> ExchangeResult x msg
+handleExchange adapter (stub, result) =
+  adapter.responseHandler (stub, result)
+    |> Result.map (\msg ->
+      { request = adapter.request
+      , stub = stub
+      , msg = msg
+      }
+    )

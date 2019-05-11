@@ -35,6 +35,7 @@ toHttpTask exchange task =
     |> deferIfNecessary exchange.stub
     |> andRecordRequestTask exchange.request
 
+
 andRecordRequestTask : HttpRequest -> Task err a -> Task err a
 andRecordRequestTask request =
   updateTestState request
