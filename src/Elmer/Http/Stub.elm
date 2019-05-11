@@ -72,6 +72,9 @@ times out. You could create a stubbed response like so:
     Elmer.Http.Stub.for (Elmer.Http.Route.get "http://fake.com/fake")
       |> withError Http.Error.Timout
 
+Note: If you want to stub a BadStatus or BadBody error, then you should use
+Elmer.Http.Stub.withStatus or Elmer.Http.Stub.withBody, respectively.
+
 -}
 withError : Http.Error -> HttpResponseStub -> HttpResponseStub
 withError error =

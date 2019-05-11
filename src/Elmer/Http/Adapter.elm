@@ -1,51 +1,121 @@
 module Elmer.Http.Adapter exposing
-  ( asHttpRequestHandler
+  ( HttpRequestData
+  , HttpTaskRequestData
+  , asHttpRequestHandler
   , makeHttpRequest
+  , toRequestData
+  , Wrapper(..)
   )
 
 import Http
 import Json.Decode as Json
 import Elmer.Value as Value
-import Elmer.Http.Internal exposing (isGoodStatusCode)
+import Elmer.Http.Internal exposing (isGoodStatusCode, routeToString)
 import Elmer.Http.Types exposing (..)
+import Elmer.Message as Message exposing (fact, note)
+import Elmer.Http.Errors as Errors
 
 
-asHttpRequestHandler : Http.Request a -> HttpRequestHandler Http.Error a
+type alias HttpRequestData msg =
+  { method : String
+  , headers : List Http.Header
+  , url : String
+  , body : Http.Body
+  , expect : Http.Expect msg
+  , timeout : Maybe Float
+  , tracker : Maybe String
+  }
+
+type alias HttpTaskRequestData x a =
+  { method : String
+  , headers : List Http.Header
+  , url : String
+  , body : Http.Body
+  , resolver : Http.Resolver x a
+  , timeout : Maybe Float
+  }
+
+type Wrapper x a =
+  Wrapper (Result x a)
+
+toRequestData : HttpTaskRequestData x a -> HttpRequestData (Wrapper x a)
+toRequestData taskData =
+  { method = taskData.method
+  , headers = taskData.headers
+  , url = taskData.url
+  , body = taskData.body
+  , expect = Http.expectStringResponse Wrapper <| taskResolver taskData.resolver
+  , timeout = taskData.timeout
+  , tracker = Nothing
+  }
+
+taskResolver : Http.Resolver x a -> (Http.Response String -> Result x a)
+taskResolver resolver =
+  case Value.decode resolverDecoder resolver of
+    Ok fun ->
+      fun
+    Err message ->
+      Debug.todo <| "Problem parsing resolver: " ++ (Json.errorToString message)
+
+resolverDecoder : Json.Decoder (Http.Response String -> Result x a)
+resolverDecoder =
+  Json.field "a" Value.decoder
+
+asHttpRequestHandler : HttpRequestData msg -> HttpRequestHandler Http.Error msg
 asHttpRequestHandler httpRequest =
   { request = makeHttpRequest httpRequest
   , responseHandler =
       case Value.decode expectDecoder httpRequest of
         Ok handler ->
-          \response ->
-            handleResponseStatus response
-              |> Result.andThen (handleResponse handler)
+          \(stub, serverResult) ->
+            case serverResult of
+              Response response ->
+                handleResponseStatus response
+                  |> handler
+                  |> Ok
+              Error err ->
+                case err of
+                  Http.Timeout ->
+                    Ok <| handler Http.Timeout_
+                  Http.NetworkError ->
+                    Ok <| handler Http.NetworkError_
+                  Http.BadUrl message ->
+                    Ok <| handler <| Http.BadUrl_ message
+                  Http.BadBody message ->
+                    Errors.errWith <|
+                      Errors.invalidUseOfBadBodyError (routeToString stub) message
+                  Http.BadStatus code ->
+                    Errors.errWith <|
+                      Errors.invalidUseOfBadStatusError (routeToString stub) code
         Err err ->
-          "Error fetching" ++ Json.errorToString err
+          "Error fetching " ++ Json.errorToString err
             |> Debug.todo
   }
 
 
-handleResponse : (Http.Response String -> Result String a) -> Http.Response String -> Result Http.Error a
-handleResponse handler response =
-  handler response
-    |> Result.mapError (\err -> Http.BadPayload err response)
 
-
-handleResponseStatus : HttpResponse String -> Result Http.Error (HttpResponse String)
+handleResponseStatus : HttpResponse String -> Http.Response String
 handleResponseStatus response =
   if isGoodStatusCode response.status.code then
-    Ok response
+    Http.GoodStatus_ (toMetadata response) response.body
   else
-    Err (Http.BadStatus response)
+    Http.BadStatus_ (toMetadata response) response.body
 
 
-expectDecoder : Json.Decoder (Http.Response String -> Result String a)
+toMetadata : HttpResponse String -> Http.Metadata
+toMetadata response =
+  { url = response.url
+  , statusCode = response.status.code
+  , statusText = response.status.message
+  , headers = response.headers
+  }
+
+expectDecoder : Json.Decoder (Http.Response String -> msg)
 expectDecoder =
-  Value.firstArg <|
-    Json.at ["expect", "a"] Value.decoder
+  Json.at ["expect", "a"] Value.decoder
 
 
-makeHttpRequest : Http.Request a -> HttpRequest
+makeHttpRequest : HttpRequestData msg -> HttpRequest
 makeHttpRequest request =
   case Value.decode httpRequestDecoder request of
     Ok r -> 
@@ -57,12 +127,11 @@ makeHttpRequest request =
 
 httpRequestDecoder : Json.Decoder HttpRequest
 httpRequestDecoder =
-  Value.firstArg <|
-    Json.map4 HttpRequest
-      (Json.field "method" Json.string)
-      (Json.field "url" Json.string)
-      (Json.field "headers" (Value.list headerDecoder))
-      (Json.field "body" bodyDecoder)
+  Json.map4 HttpRequest
+    (Json.field "method" Json.string)
+    (Json.field "url" Json.string)
+    (Json.field "headers" (Value.list headerDecoder))
+    (Json.field "body" bodyDecoder)
 
 
 headerDecoder : Json.Decoder HttpHeader
@@ -74,19 +143,20 @@ headerDecoder =
 
 bodyDecoder : Json.Decoder (Maybe String)
 bodyDecoder =
-  Value.constructor
-    |> Json.andThen (\ctor ->
-      if ctor == "StringBody" then
-        stringBodyDecoder
-          |> Json.map .body
-          |> Json.map Just
-      else
-        Json.succeed Nothing
-    )
+  Json.oneOf
+  [ mimeTypeBodyDecoder
+  , emptyBodyDecoder
+  ]
 
-
-stringBodyDecoder : Json.Decoder HttpStringBody
-stringBodyDecoder =
+mimeTypeBodyDecoder : Json.Decoder (Maybe String)
+mimeTypeBodyDecoder =
   Json.map2 HttpStringBody
     (Value.firstArg Json.string)
     (Value.secondArg Json.string)
+    |> Json.map .body
+    |> Json.map Just
+
+emptyBodyDecoder : Json.Decoder (Maybe String)
+emptyBodyDecoder =
+  Json.succeed Nothing
+  

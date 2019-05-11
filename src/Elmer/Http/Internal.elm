@@ -2,6 +2,7 @@ module Elmer.Http.Internal exposing
   ( isGoodStatusCode
   , route
   , queryString
+  , routeToString
   )
 
 
@@ -22,3 +23,15 @@ queryString url =
   String.split "?" url
     |> List.drop 1
     |> List.head
+
+
+type alias Routable a =
+  { a
+  | url : String
+  , method : String
+  }
+
+
+routeToString : Routable a -> String
+routeToString routable = 
+  routable.method ++ " " ++ routable.url

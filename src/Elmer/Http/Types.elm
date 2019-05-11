@@ -41,9 +41,9 @@ type alias HttpStringBody =
   , body: String
   }
 
-type alias HttpRequestHandler x a =
+type alias HttpRequestHandler x msg =
   { request: HttpRequest
-  , responseHandler: (HttpResponse String -> Result x a)
+  , responseHandler: ((HttpStub x, HttpResult x) -> Result String msg)
   }
 
 type HttpResponseStub x

@@ -24,23 +24,23 @@ defaultStub =
 
 type Msg
   = ResponseResult (Result Http.Error String)
+  | StringResult (Result String String)
 
 
 expectMessageFor : HttpResponseStub -> Result Http.Error String -> Expectation
 expectMessageFor stub result =
   let
-    request = 
-      Http.request 
-        { method = "GET"
-        , headers = []
-        , url = "http://fun.com"
-        , body = Http.emptyBody
-        , expect = Http.expectString
-        , timeout = Nothing
-        , withCredentials = False
-        }
+    requestData = 
+      { method = "GET"
+      , headers = []
+      , url = "http://fun.com"
+      , body = Http.emptyBody
+      , expect = Http.expectString ResponseResult
+      , timeout = Nothing
+      , tracker = Nothing
+      }
   in
-    Command.given (\() -> Http.send ResponseResult request)
+    Command.given (\() -> Http.request requestData)
       |> Spy.use [ Elmer.Http.serve [ stub ] ]
       |> Command.expectMessages (
         exactly 1 <| Expect.equal (ResponseResult result)
@@ -79,26 +79,30 @@ withBodyTests =
 expectHeadersFor : HttpResponseStub -> Dict String String -> Expectation
 expectHeadersFor stub expectedHeaders =
   let
-    request = 
-      Http.request 
+    requestData = 
+      -- Http.request 
         { method = "GET"
         , headers = []
         , url = "http://fun.com"
         , body = Http.emptyBody
-        , expect = Http.expectStringResponse (\response ->
-            if response.headers == expectedHeaders then
-              Ok "Found headers!"
-            else
-              Err <| "Wrong headers: " ++ Debug.toString response.headers
+        , expect = Http.expectStringResponse StringResult (\response ->
+            case response of
+              Http.GoodStatus_ metadata body ->
+                if metadata.headers == expectedHeaders then
+                  Ok "Found headers!"
+                else
+                  Err <| "Wrong headers: " ++ Debug.toString metadata.headers
+              _ ->
+                Err "Not a good status?!?"
         )
         , timeout = Nothing
-        , withCredentials = False
+        , tracker = Nothing
         }
   in
-    Command.given (\() -> Http.send ResponseResult request)
+    Command.given (\() -> Http.request requestData)
       |> Spy.use [ Elmer.Http.serve [ stub ] ]
       |> Command.expectMessages (
-        exactly 1 <| Expect.equal (ResponseResult <| Ok "Found headers!")
+        exactly 1 <| Expect.equal (StringResult <| Ok "Found headers!")
       )
 
 
@@ -137,26 +141,30 @@ withHeaderTests =
 expectStatusFor : HttpResponseStub -> Int -> Expectation
 expectStatusFor stub expectedStatus =
   let
-    request = 
-      Http.request 
+    requestData =
+      -- Http.request 
         { method = "GET"
         , headers = []
         , url = "http://fun.com"
         , body = Http.emptyBody
-        , expect = Http.expectStringResponse (\response ->
-            if response.status.code == expectedStatus then
-              Ok "Found status!"
-            else
-              Err <| "Wrong status: " ++ String.fromInt response.status.code
+        , expect = Http.expectStringResponse StringResult (\response ->
+            case response of
+              Http.GoodStatus_ metadata body ->
+                if metadata.statusCode == expectedStatus then
+                  Ok "Found status!"
+                else
+                  Err <| "Wrong status: " ++ String.fromInt metadata.statusCode
+              _ ->
+                Err "Not a good status?!"
         )
         , timeout = Nothing
-        , withCredentials = False
+        , tracker = Nothing
         }
   in
-    Command.given (\() -> Http.send ResponseResult request)
+    Command.given (\() -> Http.request requestData)
       |> Spy.use [ Elmer.Http.serve [ stub ] ]
       |> Command.expectMessages (
-        exactly 1 <| Expect.equal (ResponseResult <| Ok "Found status!")
+        exactly 1 <| Expect.equal (StringResult <| Ok "Found status!")
       )
 
 

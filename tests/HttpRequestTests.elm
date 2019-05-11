@@ -8,7 +8,6 @@ import Http
 import Dict
 
 
-
 bodyTests : Test
 bodyTests =
   describe "body"
@@ -66,9 +65,12 @@ headersTest =
     ]
   ]
 
+type TestMsg
+  = StringResult (Result Http.Error String)
+
 testRequest : Maybe String -> HttpRequest
 testRequest body =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "GET"
     , headers = []
     , url = "http://fake.com"
@@ -78,37 +80,33 @@ testRequest body =
           Http.stringBody "application/json" value
         Nothing ->
           Http.emptyBody
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
-  
+
 
 testQueryRequest : String -> HttpRequest
 testQueryRequest query =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "GET"
     , headers = []
     , url = "http://fake.com?" ++ query
     , body = Http.emptyBody
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
-  
+
 
 testHeadersRequest : List { name : String, value : String } -> HttpRequest
 testHeadersRequest headers =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "GET"
     , headers = List.map (\h -> Http.header h.name h.value) headers
     , url = "http://fake.com"
     , body = Http.emptyBody
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
-  

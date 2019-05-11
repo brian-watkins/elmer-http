@@ -28,10 +28,10 @@ component. What to do?
 import Http
 import Dict
 import Elmer exposing (Matcher)
-import Elmer.Http.Internal as Http_
+import Elmer.Http.Internal as Http_ exposing (routeToString)
 import Elmer.Http.Types as Types
-import Elmer.Http.Send as FakeSend
-import Elmer.Http.ToTask as FakeToTask
+import Elmer.Http.Command
+import Elmer.Http.Task
 import Elmer.Http.Route as Route exposing (HttpRoute)
 import Elmer.Http.Request exposing (HttpRequest)
 import Elmer.Spy as Spy exposing (Spy, andCallFake)
@@ -81,10 +81,10 @@ a button is clicked. You could register a stub for that request like so
 serve : List HttpResponseStub -> Spy
 serve responseStubs =
   Spy.batch
-    [ Spy.observe (\_ -> Http.send)
-        |> andCallFake (FakeSend.stubbedWith responseStubs)
-    , Spy.observe (\_ -> Http.toTask)
-        |> andCallFake (FakeToTask.stubbedWith responseStubs)
+    [ Spy.observe (\_ -> Http.request)
+        |> andCallFake (Elmer.Http.Command.stubbedWith responseStubs)
+    , Spy.observe (\_ -> Http.task)
+        |> andCallFake (Elmer.Http.Task.stubbedWith responseStubs)
     ]
 
 
@@ -172,8 +172,3 @@ hasRequest requests method url =
 matchesRequest : String -> String -> HttpRequest -> Bool
 matchesRequest method url request =
   request.method == method && (Http_.route request.url) == url
-
-
-routeToString : HttpRoute -> String
-routeToString route =
-  route.method ++ " " ++ route.url

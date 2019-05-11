@@ -84,7 +84,7 @@ serveTests =
                 |> Markup.target << by [ id "request-data-click" ]
                 |> Event.click
                 |> Markup.target << by [ id "data-result" ]
-                |> Markup.expect (element <| hasText "BadStatus Error: 404 Not Found")
+                |> Markup.expect (element <| hasText "BadStatus Error: 404")
         ]
       , describe "when the response status is in the 200 range"
         [ describe "when the response body cannot be processed"
@@ -99,14 +99,7 @@ serveTests =
                   |> Markup.target << by [ id "request-data-click" ]
                   |> Event.click
                   |> Markup.target << by [ id "data-result" ]
-                  |> Markup.expect (element <| hasText "Name: Super Fun Person")
-                  |> Expect.equal (Expect.fail (format
-                    [ fact "Parsing a stubbed response" "GET http://fun.com/fun.html"
-                    , note ("\tWith body: \"{}\"")
-                    , fact "failed with error" "Problem with the given value:\n\n{}\n\nExpecting an OBJECT with a field named `name`"
-                    , note "If you really want to generate a BadPayload error, consider using\nElmer.Http.Stub.withError to build your stubbed response."
-                    ]
-                  ))
+                  |> Markup.expect (element <| hasText "BadBody Error: Problem with the given value:\n\n{}\n\nExpecting an OBJECT with a field named `name`")
           , describe "when the stub does not specify a body at all"
             [ test "it fails with a message" <|
               \() ->
@@ -118,14 +111,7 @@ serveTests =
                     |> Markup.target << by [ id "request-data-click" ]
                     |> Event.click
                     |> Markup.target << by [ id "data-result" ]
-                    |> Markup.expect (element <| hasText "Name: Super Fun Person")
-                    |> Expect.equal (Expect.fail (format
-                      [ fact "Parsing a stubbed response" "GET http://fun.com/fun.html"
-                      , note ("\tWith body: \"\"")
-                      , fact "failed with error" "Problem with the given value:\n\n\"\"\n\nThis is not valid JSON! Unexpected end of JSON input"
-                      , note "If you really want to generate a BadPayload error, consider using\nElmer.Http.Stub.withError to build your stubbed response."
-                      ]
-                    ))
+                    |> Markup.expect (element <| hasText "BadBody Error: Problem with the given value:\n\n\"\"\n\nThis is not valid JSON! Unexpected end of JSON input")
             ]
           ]
         , describe "when the requested url has a query string"
@@ -160,7 +146,8 @@ serveTests =
                   |> Markup.expect (element <| hasText "Super Fun Person")
                   |> Expect.equal Expect.pass
           ]
-        , let
+        , describe "when multiple stubs are provided" <|
+          let
             stubbedResponse = HttpStub.for (Route.get "http://fun.com/fun.html")
               |> HttpStub.withBody "{\"name\":\"Super Fun Person\",\"type\":\"person\"}"
             otherStub = HttpStub.for (Route.get "http://fun.com/super.html")
@@ -172,7 +159,6 @@ serveTests =
               |> Markup.target << by [ id "request-other-data-click" ]
               |> Event.click
           in
-            describe "when multiple stubs are provided"
             [ test "it decodes the response for one stub" <|
               \() ->
                 state
@@ -193,20 +179,53 @@ serveTests =
 errorResponseTests : Test
 errorResponseTests =
   describe "when the request should result in an Http.Error"
-  [ test "it returns the error" <|
+  [ test "it processes the Timeout error" <|
     \() ->
-      let
-        stubbedResponse = HttpStub.for (Route.get "http://fun.com/fun.html")
-          |> HttpStub.withError Http.Timeout
-      in
-        Elmer.given App.defaultModel App.view App.update
-          |> Spy.use [ ElmerHttp.serve [ stubbedResponse ] ]
-          |> Markup.target << by [ id "request-data-click" ]
-          |> Event.click
-          |> Markup.target << by [ id "data-result" ]
-          |> Markup.expect (element <| hasText "Timeout Error")
+      testStateWithError Http.Timeout
+        |> Markup.expect (element <| hasText "Timeout Error") 
+  , test "it processes the Network error" <|
+    \() ->
+      testStateWithError Http.NetworkError 
+        |> Markup.expect (element <| hasText "Network Error")
+  , test "it processes the BadUrl error" <|
+    \() ->
+      testStateWithError (Http.BadUrl "Not a good url!")
+        |> Markup.expect (element <| hasText "BadUrl Error: Not a good url!")
+  , test "it processes the BadBody error" <|
+    \() ->
+      testStateWithError (Http.BadBody "You have a bad body!")
+        |> Markup.expect (element <| hasText "")
+        |> Expect.equal (Expect.fail (format
+          [ note "Invalid use of Elmer.Http.Stub.withError!"
+          , fact "It seems you wanted to stub" "GET http://fun.com/fun.html"
+          , fact "to return a BadBody error with the message" "You have a bad body!"
+          , note "To simulate a BadBody error, use Elmer.Http.Stub.withBody with a bad body instead."
+          ]
+        ))
+  , test "it processes the BadStatus error" <|
+    \() ->
+      testStateWithError (Http.BadStatus 888)
+        |> Markup.expect (element <| hasText "")
+        |> Expect.equal (Expect.fail (format
+          [ note "Invalid use of Elmer.Http.Stub.withError!"
+          , fact "It seems you wanted to stub" "GET http://fun.com/fun.html"
+          , fact "to return a BadStatus error with the code" "888"
+          , note "To simulate a BadStatus error, use Elmer.Http.Stub.withStatus with the bad status code instead."
+          ]
+        ))
   ]
 
+testStateWithError : Http.Error -> TestState App.Model App.Msg
+testStateWithError error =
+  let
+    stubbedResponse = HttpStub.for (Route.get "http://fun.com/fun.html")
+      |> HttpStub.withError error
+  in
+    Elmer.given App.defaultModel App.view App.update
+      |> Spy.use [ ElmerHttp.serve [ stubbedResponse ] ]
+      |> Markup.target << by [ id "request-data-click" ]
+      |> Event.click
+      |> Markup.target << by [ id "data-result" ]
 
 expectTests : Test
 expectTests =
@@ -236,17 +255,14 @@ expectTests =
     , describe "when there are other requests"
       [ test "it fails with a message" <|
         \() ->
-          let
-            initialState =
-              testStateWithRequests
-                [ (Route.post "http://fun.com/fun", realRequest "POST" "http://fun.com/fun")
-                , (Route.get "http://awesome.com/awesome.html?stuff=fun", realRequest "GET" "http://awesome.com/awesome.html?stuff=fun")
-                ]
-          in
-            ElmerHttp.expectRequest getRoute initialState
-              |> Expect.equal (Errors.failWith <| 
-                Errors.wrongRequest "GET http://fun.com/fun.html" "POST http://fun.com/fun\nGET http://awesome.com/awesome.html?stuff=fun"
-              )
+          testStateWithRequests
+            [ (Route.post "http://fun.com/fun", realRequest "POST" "http://fun.com/fun")
+            , (Route.get "http://awesome.com/awesome.html?stuff=fun", realRequest "GET" "http://awesome.com/awesome.html?stuff=fun")
+            ]
+            |> ElmerHttp.expectRequest getRoute
+            |> Expect.equal (Errors.failWith <| 
+              Errors.wrongRequest "GET http://fun.com/fun.html" "POST http://fun.com/fun\nGET http://awesome.com/awesome.html?stuff=fun"
+            )
       ]
     ]
   , describe "when the stub was requested"
@@ -351,14 +367,14 @@ expectThatTests =
                   , (Route.get "http://fun.com/fun.html", realRequest "GET" "http://fun.com/fun.html")
                   , (Route.get "http://fun.com/fun.html?stuff=fun", realRequest "GET" "http://fun.com/fun.html?stuff=fun")
                   ]
-              requestForStub = testRequest "GET" "http://fun.com/fun.html"
-              requestForStubQueryString = testRequest "GET" "http://fun.com/fun.html?stuff=fun"
+              requestForStub = httpRequest "GET" "http://fun.com/fun.html"
+              requestForStubQueryString = httpRequest "GET" "http://fun.com/fun.html?stuff=fun"
             in
               initialState
                 |> ElmerHttp.expect getRoute (\rs -> 
                   Expect.equal [ requestForStubQueryString, requestForStub, requestForStub ] rs
                 ) 
-        , describe "when the matcher fails"
+         , describe "when the matcher fails"
           [ test "it fails with a message" <|
             \() ->
               let
@@ -378,7 +394,8 @@ expectThatTests =
       ]
     ]
 
-testStateWithRequests : List (HttpRoute, Http.Request String) -> TestState TestModel TestMsg
+
+testStateWithRequests : List (HttpRoute, () -> Cmd TestMsg) -> TestState TestModel TestMsg
 testStateWithRequests requests =
   Elmer.given {} testView testUpdate
     |> Spy.use [ ElmerHttp.serve <| List.map makeStub (List.map Tuple.first requests) ]
@@ -389,14 +406,12 @@ makeStub route =
   HttpStub.for route
     |> HttpStub.withStatus Status.notFound
 
-makeRequests : List (Http.Request String) -> Cmd TestMsg
+makeRequests : List (() -> Cmd TestMsg) -> Cmd TestMsg
 makeRequests requests =
-  List.map sendRequest requests
+  requests
+    |> List.map (\f -> f ()) 
     |> Cmd.batch
 
-sendRequest : Http.Request String -> Cmd TestMsg
-sendRequest request =
-  Http.send TestRequestTagger request
 
 testView : TestModel -> Html TestMsg
 testView model =
@@ -412,26 +427,27 @@ type alias TestModel =
 type TestMsg
   = TestRequestTagger (Result Http.Error String)
 
-realRequest : String -> String -> Http.Request String
+realRequest : String -> String -> () -> Cmd TestMsg
 realRequest method url =
-  Http.request
-    { method = method
-    , headers = []
-    , url = url
-    , body = Http.emptyBody
-    , expect = Http.expectJson <| Json.succeed ""
-    , timeout = Nothing
-    , withCredentials = False
-    }
+  \_ -> 
+    Http.request
+      { method = method
+      , headers = []
+      , url = url
+      , body = Http.emptyBody
+      , expect = Http.expectJson TestRequestTagger <| Json.succeed ""
+      , timeout = Nothing
+      , tracker = Nothing
+      }
 
-
-testRequest : String -> String -> HttpRequest
-testRequest method url =
+httpRequest : String -> String -> HttpRequest
+httpRequest method url =
   { method = method
   , url = url
-  , body = Nothing
   , headers = []
+  , body = Nothing
   }
+
 
 expectRequestDataTests : Test
 expectRequestDataTests =

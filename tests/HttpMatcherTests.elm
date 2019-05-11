@@ -12,29 +12,28 @@ import Elmer.Message exposing (..)
 
 requestWithBody : String -> HttpRequest
 requestWithBody body =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "POST"
     , headers = []
     , url = "http://fun.com/fun"
     , body = Http.stringBody "application/json" body
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
+
 
 requestWithNoBody : HttpRequest
 requestWithNoBody =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "POST"
     , headers = []
     , url = "http://fun.com/fun"
     , body = Http.emptyBody
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
 
 
 wasRequestedTests : Test
@@ -120,16 +119,15 @@ hasBodyTests =
 
 getWithQuery : Maybe String -> HttpRequest
 getWithQuery maybeQuery =
-  Http.request
+  HttpAdapter.makeHttpRequest
     { method = "GET"
     , headers = []
     , url = "http://fun.com/fun" ++ (Maybe.withDefault "" maybeQuery)
     , body = Http.emptyBody
-    , expect = Http.expectString
+    , expect = Http.expectString StringResult
     , timeout = Nothing
-    , withCredentials = False
+    , tracker = Nothing
     }
-  |> HttpAdapter.makeHttpRequest
 
 
 hasQueryParamTests : Test
@@ -167,17 +165,18 @@ getWithHeader maybeHeader =
         Nothing ->
           []
   in
-    Http.request
+    HttpAdapter.makeHttpRequest
       { method = "GET"
       , headers = headers
       , url = "http://fun.com/fun.html"
       , body = Http.emptyBody
-      , expect = Http.expectString
+      , expect = Http.expectString StringResult
       , timeout = Nothing
-      , withCredentials = False
+      , tracker = Nothing
       }
-    |> HttpAdapter.makeHttpRequest
-  
+
+type TestMsg =
+  StringResult (Result Http.Error String)
 
 hasHeaderTests : Test
 hasHeaderTests =
