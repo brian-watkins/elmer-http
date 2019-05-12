@@ -7,7 +7,10 @@ matchers for describing the behavior of Elm apps that use HTTP.
 ### Requirements
 
 - [Elmer](https://github.com/brian-watkins/elmer) - Version 6.x
-- [elm/http](https://github.com/elm/http) - Version 1.x
+- [elm/http](https://github.com/elm/http) - Version 2.x
+
+If you're interested in using Elmer.Http with elm/http version 1.0.0 then you'll need the
+1.0.0 release of this package.
 
 
 ### Getting Started
@@ -21,6 +24,17 @@ Next, you should clone this repository and copy or link the src files into your 
 ### Documentation
 
 Read the latest docs [here](https://elmer-test.cfapps.io/elmer.http).
+
+
+### Releases
+
+#### 2.0.0
+- Basic support for elm/http 2.0.0
+- Use `Http.get`, `Http.post`, `Http.request`, and `Http.Task` during a test.
+
+#### 1.0.0
+- Basic support for elm/http 1.0.0
+- Use `Http.send` and `Http.toTask` during a test.
 
 
 ### Usage
